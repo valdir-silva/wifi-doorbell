@@ -1,20 +1,18 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 android {
-    namespace = "com.example.wifidoorbell"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    namespace = "com.alunando.wifidoorbell"
+    compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.wifidoorbell"
-        minSdk = 24
-        targetSdk = 36
+        applicationId = "com.alunando.wifidoorbell"
+        minSdk = 26
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -40,6 +38,12 @@ android {
 }
 
 dependencies {
+    implementation(project(":core"))
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth.android)
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.messaging)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
