@@ -24,4 +24,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "Wifi DoorBell"
 include(":app")
+include(":core")
  
