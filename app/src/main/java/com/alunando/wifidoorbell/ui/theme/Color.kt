@@ -1,4 +1,4 @@
-package com.example.wifidoorbell.ui.theme
+package com.alunando.wifidoorbell.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
