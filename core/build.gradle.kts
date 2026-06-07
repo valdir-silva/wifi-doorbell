@@ -1,11 +1,16 @@
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.sqldelight)
 }
 
 kotlin {
-    androidTarget()
+    android {
+        compileSdk = 35
+        minSdk = 26
+        namespace = "com.alunando.wifidoorbell.core"
+    }
+
     // iosArm64()            // uncomment when iOS target is added
     // iosSimulatorArm64()
 
@@ -22,12 +27,9 @@ kotlin {
     }
 }
 
-android {
-    namespace = "com.alunando.wifidoorbell.core"
-    compileSdk = 35
-    defaultConfig {
-        minSdk = 26
-    }
+dependencies {
+    // Firebase BOM provides versions for com.google.firebase:* transitive deps from dev.gitlive
+    "androidMainImplementation"(platform(libs.firebase.bom))
 }
 
 sqldelight {
