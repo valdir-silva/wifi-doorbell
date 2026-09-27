@@ -8,11 +8,11 @@ import kotlinx.coroutines.withContext
 class SqlDelightRuleRepository(private val db: WifiDoorbellDb) : RuleRepository {
 
     override suspend fun getRuleFor(id: String): NotificationRule? = withContext(Dispatchers.IO) {
-        db.notificationRuleEntityQueries.getById(id).executeAsOneOrNull()?.toRule()
+        db.notificationRuleQueries.getById(id).executeAsOneOrNull()?.toRule()
     }
 
     override suspend fun updateRule(rule: NotificationRule) = withContext(Dispatchers.IO) {
-        db.notificationRuleEntityQueries.upsert(
+        db.notificationRuleQueries.upsert(
             id = rule.id,
             throttleMinutes = rule.throttleMinutes.toLong(),
             enabled = if (rule.enabled) 1L else 0L,

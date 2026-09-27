@@ -12,21 +12,21 @@ import kotlinx.coroutines.withContext
 class SqlDelightDeviceRepository(private val db: WifiDoorbellDb) : DeviceRepository {
 
     override fun getWatchedDevices(): Flow<List<Device>> {
-        return db.deviceEntityQueries.getWatched()
+        return db.deviceQueries.getWatched()
             .asFlow()
             .mapToList(Dispatchers.IO)
             .map { entities -> entities.map { it.toDevice() } }
     }
 
     fun getAllDevices(): Flow<List<Device>> {
-        return db.deviceEntityQueries.getAll()
+        return db.deviceQueries.getAll()
             .asFlow()
             .mapToList(Dispatchers.IO)
             .map { entities -> entities.map { it.toDevice() } }
     }
 
     override suspend fun saveDevice(device: Device) = withContext(Dispatchers.IO) {
-        db.deviceEntityQueries.upsert(
+        db.deviceQueries.upsert(
             id = device.id,
             hostname = device.hostname,
             ip = device.ip,
@@ -38,11 +38,11 @@ class SqlDelightDeviceRepository(private val db: WifiDoorbellDb) : DeviceReposit
     }
 
     override suspend fun getDevice(id: String): Device? = withContext(Dispatchers.IO) {
-        db.deviceEntityQueries.getById(id).executeAsOneOrNull()?.toDevice()
+        db.deviceQueries.getById(id).executeAsOneOrNull()?.toDevice()
     }
 
     suspend fun toggleWatched(id: String, isWatched: Boolean) = withContext(Dispatchers.IO) {
-        db.deviceEntityQueries.updateWatched(
+        db.deviceQueries.updateWatched(
             isWatched = if (isWatched) 1L else 0L,
             id = id
         )
