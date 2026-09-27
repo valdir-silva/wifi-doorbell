@@ -127,6 +127,46 @@ class WifiScanner(private val context: Context) {
             Log.e("WifiScanner", "Falha ao executar ip neigh para $ip: ${e.message}")
         }
 
+        try {
+            // Tenta via ROOT (su) como última esperança para contornar o bloqueio do Android 10+
+            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "ip neigh show $ip"))
+            BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
+                var line = reader.readLine()
+                while (line != null) {
+                    if (line.contains(ip) && line.contains(" lladdr ")) {
+                        val mac = line.substringAfter(" lladdr ").substringBefore(" ")
+                        if (mac.isNotBlank()) {
+                            Log.d("WifiScanner", "MAC Address lido com SUCESSO via ROOT para $ip: $mac")
+                            return mac
+                        }
+                    }
+                    line = reader.readLine()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("WifiScanner", "Falha ao executar ip neigh como root para $ip: ${e.message}")
+        }
+
+        try {
+            // Outra tentativa ROOT lendo o /proc/net/arp
+            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "cat /proc/net/arp | grep $ip"))
+            BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
+                val line = reader.readLine()
+                if (line != null) {
+                    val parts = line.split(Regex(" +"))
+                    if (parts.size >= 4 && parts[0] == ip) {
+                        val mac = parts[3]
+                        if (mac.matches(Regex("^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"))) {
+                            Log.d("WifiScanner", "MAC Address lido do ARP via ROOT para $ip: $mac")
+                            return mac
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("WifiScanner", "Falha ao ler arp como root para $ip: ${e.message}")
+        }
+
         Log.d("WifiScanner", "Não foi possivel obter o MAC para $ip")
         return null
     }
