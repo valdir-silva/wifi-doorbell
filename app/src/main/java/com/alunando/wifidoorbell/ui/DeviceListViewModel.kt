@@ -43,6 +43,18 @@ class DeviceListViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun renameDevice(deviceId: String, newName: String) {
+        viewModelScope.launch {
+            val device = deviceRepository.getDevice(deviceId)
+            if (device != null) {
+                val updatedDevice = device.copy(
+                    customName = newName.ifBlank { null }
+                )
+                deviceRepository.saveDevice(updatedDevice)
+            }
+        }
+    }
+
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {

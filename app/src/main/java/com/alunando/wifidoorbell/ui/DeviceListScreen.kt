@@ -40,6 +40,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.alunando.wifidoorbell.core.model.Device
 
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+
 @Composable
 fun DeviceListScreen(
     viewModel: DeviceListViewModel,
@@ -47,6 +55,40 @@ fun DeviceListScreen(
 ) {
     val devices by viewModel.allDevices.collectAsState()
     val isMonitoring by viewModel.isMonitoring.collectAsState()
+
+    var deviceToRename by remember { mutableStateOf<Device?>(null) }
+
+    if (deviceToRename != null) {
+        var newName by remember { mutableStateOf(deviceToRename?.customName ?: "") }
+        AlertDialog(
+            onDismissRequest = { deviceToRename = null },
+            title = { Text("Renomear Dispositivo") },
+            text = {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = { Text("Nome customizado (ex: Portão)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.renameDevice(deviceToRename!!.id, newName)
+                        deviceToRename = null
+                    }
+                ) {
+                    Text("Salvar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deviceToRename = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 
     Column(
         modifier = modifier
@@ -97,7 +139,8 @@ fun DeviceListScreen(
                 items(devices, key = { it.id }) { device ->
                     DeviceItem(
                         device = device,
-                        onToggleWatched = { viewModel.toggleWatched(device.id, device.isWatched) }
+                        onToggleWatched = { viewModel.toggleWatched(device.id, device.isWatched) },
+                        onRenameClick = { deviceToRename = device }
                     )
                 }
             }
@@ -135,7 +178,8 @@ private fun StatusHeader(isMonitoring: Boolean, deviceCount: Int) {
 @Composable
 private fun DeviceItem(
     device: Device,
-    onToggleWatched: () -> Unit
+    onToggleWatched: () -> Unit,
+    onRenameClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -164,6 +208,12 @@ private fun DeviceItem(
                     text = device.ip,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onRenameClick) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Renomear dispositivo"
                 )
             }
             IconButton(onClick = onToggleWatched) {
