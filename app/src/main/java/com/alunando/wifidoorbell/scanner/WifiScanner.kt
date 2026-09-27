@@ -8,6 +8,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
+import java.io.BufferedReader
+import java.io.FileReader
+import java.io.InputStreamReader
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -44,8 +47,15 @@ class WifiScanner(private val context: Context) {
             
             if (isReachable) {
                 val hostname = inetAddress.canonicalHostName.takeIf { it != ip } ?: "Unknown Device"
-                val id = hashString(hostname + ip) // Use IP in hash to avoid collisions if hostname is Unknown
-                ScannedDevice(id = id, hostname = hostname, ip = ip)
+                val macAddress = getMacAddress(ip)
+                
+                // Se conseguirmos o MAC (pode falhar no Android 10+), usamos ele pro ID. Se não, fallback pro IP.
+                val idInput = macAddress ?: (hostname + ip)
+                val id = hashString(idInput)
+                
+                val finalHostname = if (macAddress != null && hostname == "Unknown Device") "Device ($macAddress)" else hostname
+                
+                ScannedDevice(id = id, hostname = finalHostname, ip = ip)
             } else {
                 null
             }
@@ -63,6 +73,43 @@ class WifiScanner(private val context: Context) {
         } catch (e: Exception) {
             false
         }
+    }
+
+    private fun getMacAddress(ip: String): String? {
+        try {
+            // Tenta ler do arquivo ARP (pode ser bloqueado no Android 10+)
+            BufferedReader(FileReader("/proc/net/arp")).use { reader ->
+                var line = reader.readLine()
+                while (line != null) {
+                    val parts = line.split(Regex(" +"))
+                    if (parts.size >= 4 && parts[0] == ip) {
+                        val mac = parts[3]
+                        if (mac.matches(Regex("^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"))) {
+                            return mac
+                        }
+                    }
+                    line = reader.readLine()
+                }
+            }
+        } catch (e: Exception) {
+            // Ignora e tenta o próximo método
+        }
+
+        try {
+            // Tenta via comando ip neigh (pode ser bloqueado pelo SELinux no Android 10+)
+            val process = Runtime.getRuntime().exec("ip neigh show $ip")
+            BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
+                val line = reader.readLine()
+                if (line != null && line.contains(" lladdr ")) {
+                    val mac = line.substringAfter(" lladdr ").substringBefore(" ")
+                    if (mac.isNotBlank()) return mac
+                }
+            }
+        } catch (e: Exception) {
+            // Ignora
+        }
+
+        return null
     }
 
     private fun hashString(input: String): String {
