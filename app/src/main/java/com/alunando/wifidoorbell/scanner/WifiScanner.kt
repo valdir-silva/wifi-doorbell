@@ -12,6 +12,7 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.security.MessageDigest
+import android.util.Log
 
 class WifiScanner(private val context: Context) {
 
@@ -19,16 +20,20 @@ class WifiScanner(private val context: Context) {
         val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         val dhcpInfo = wifiManager.dhcpInfo
         
+        Log.d("WifiScanner", "dhcpInfo: ip=${dhcpInfo?.ipAddress}, netmask=${dhcpInfo?.netmask}")
         if (dhcpInfo == null || dhcpInfo.ipAddress == 0) {
+            Log.w("WifiScanner", "dhcpInfo is null or ipAddress is 0. Returning empty.")
             return@withContext ScanResult(System.currentTimeMillis(), emptyList())
         }
 
         val ips = SubnetUtils.getIpsInSubnet(dhcpInfo.ipAddress, dhcpInfo.netmask)
+        Log.d("WifiScanner", "Scanning ${ips.size} IPs in subnet...")
         
         val scannedDevices = ips.map { ip ->
             async { pingAndResolve(ip) }
         }.awaitAll().filterNotNull()
 
+        Log.d("WifiScanner", "Scan complete. Found ${scannedDevices.size} devices.")
         ScanResult(System.currentTimeMillis(), scannedDevices)
     }
 

@@ -24,6 +24,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import android.util.Log
 
 class NetworkMonitorService : Service() {
 
@@ -73,7 +74,9 @@ class NetworkMonitorService : Service() {
         serviceScope.launch {
             while (isActive) {
                 try {
+                    Log.d("NetworkMonitorService", "Starting scan loop iteration...")
                     val currentScan = scanner.scan()
+                    Log.d("NetworkMonitorService", "Scan returned ${currentScan.devices.size} devices")
 
                     val devicesToNotify = processor.process(currentScan, previousScan)
 
@@ -110,7 +113,7 @@ class NetworkMonitorService : Service() {
 
                     previousScan = currentScan
                 } catch (e: Exception) {
-                    // Log and continue - don't crash the service
+                    Log.e("NetworkMonitorService", "Error during scan loop", e)
                 }
                 delay(SCAN_INTERVAL_MS)
             }
