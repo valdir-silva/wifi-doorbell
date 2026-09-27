@@ -1,0 +1,25 @@
+CREATE TABLE DeviceEntity (
+  id TEXT PRIMARY KEY,
+  hostname TEXT NOT NULL,
+  ip TEXT NOT NULL,
+  customName TEXT,
+  isWatched INTEGER NOT NULL DEFAULT 0,
+  lastSeen INTEGER NOT NULL,
+  firstSeen INTEGER NOT NULL
+);
+
+getById:
+SELECT * FROM DeviceEntity WHERE id = ?;
+
+getWatched:
+SELECT * FROM DeviceEntity WHERE isWatched = 1;
+
+getAll:
+SELECT * FROM DeviceEntity;
+
+upsert:
+INSERT OR REPLACE INTO DeviceEntity(id, hostname, ip, customName, isWatched, lastSeen, firstSeen)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+updateWatched:
+UPDATE DeviceEntity SET isWatched = ? WHERE id = ?;

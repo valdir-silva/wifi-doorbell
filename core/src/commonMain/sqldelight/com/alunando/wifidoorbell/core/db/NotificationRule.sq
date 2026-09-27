@@ -1,0 +1,13 @@
+CREATE TABLE NotificationRuleEntity (
+  id TEXT PRIMARY KEY,
+  throttleMinutes INTEGER NOT NULL DEFAULT 30,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  lastNotifiedAt INTEGER
+);
+
+getById:
+SELECT * FROM NotificationRuleEntity WHERE id = ?;
+
+upsert:
+INSERT OR REPLACE INTO NotificationRuleEntity(id, throttleMinutes, enabled, lastNotifiedAt)
+VALUES (?, ?, ?, ?);
