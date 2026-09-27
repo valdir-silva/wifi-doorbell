@@ -25,9 +25,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.alunando.wifidoorbell.ui.DeviceListScreen
+import com.alunando.wifidoorbell.ui.DeviceListViewModel
 import com.alunando.wifidoorbell.ui.theme.WifiDoorBellTheme
 
 class MainActivity : ComponentActivity() {
@@ -40,9 +42,10 @@ class MainActivity : ComponentActivity() {
                     RequirePermissionsScreen(
                         modifier = Modifier.padding(innerPadding)
                     ) {
-                        Greeting(
-                            name = "WifiDoorbell"
+                        val viewModel: DeviceListViewModel = viewModel(
+                            factory = DeviceListViewModel.Factory(application)
                         )
+                        DeviceListScreen(viewModel = viewModel)
                     }
                 }
             }
@@ -97,21 +100,5 @@ fun RequirePermissionsScreen(
                 Text("Conceder Permissões")
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    WifiDoorBellTheme {
-        Greeting("Android")
     }
 }
