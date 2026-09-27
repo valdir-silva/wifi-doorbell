@@ -11,9 +11,11 @@ import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.FileReader
 import java.io.InputStreamReader
+import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.URL
 import java.security.MessageDigest
 import android.util.Log
 
@@ -53,7 +55,15 @@ class WifiScanner(private val context: Context) {
                 val idInput = macAddress ?: (hostname + ip)
                 val id = hashString(idInput)
                 
-                val finalHostname = if (macAddress != null && hostname == "Unknown Device") "Device ($macAddress)" else hostname
+                var finalHostname = if (macAddress != null && hostname == "Unknown Device") "Device ($macAddress)" else hostname
+                
+                // Tenta extrair info do servidor HTTP (Porta 80) para dar mais contexto ao usuario
+                if (finalHostname.startsWith("Unknown") || finalHostname.startsWith("Device")) {
+                    val httpInfo = getHttpInfo(ip)
+                    if (httpInfo != null) {
+                        finalHostname = "$finalHostname [$httpInfo]"
+                    }
+                }
                 
                 ScannedDevice(id = id, hostname = finalHostname, ip = ip)
             } else {
@@ -109,6 +119,33 @@ class WifiScanner(private val context: Context) {
             // Ignora
         }
 
+        return null
+    }
+
+    private fun getHttpInfo(ip: String): String? {
+        try {
+            val url = URL("http://$ip")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 300
+            conn.readTimeout = 300
+            
+            // 1. Tenta pegar o header "Server" (muitos roteadores/IoT retornam "lighttpd", "ESP32", etc)
+            val server = conn.getHeaderField("Server")
+            if (!server.isNullOrBlank()) {
+                return server
+            }
+            
+            // 2. Se nao tiver Server header, tenta ler a tag <title> do HTML
+            BufferedReader(InputStreamReader(conn.inputStream)).use { reader ->
+                val html = reader.readText()
+                val match = Regex("<title>(.*?)</title>", RegexOption.IGNORE_CASE).find(html)
+                if (match != null) {
+                    return match.groupValues[1].trim()
+                }
+            }
+        } catch (e: Exception) {
+            // Ignora falhas de conexao HTTP
+        }
         return null
     }
 
