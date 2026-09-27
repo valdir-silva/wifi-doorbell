@@ -1,6 +1,7 @@
 package com.alunando.wifidoorbell
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -9,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -22,8 +24,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.alunando.wifidoorbell.ui.theme.WifiDoorBellTheme
 
 class MainActivity : ComponentActivity() {
@@ -51,8 +55,6 @@ fun RequirePermissionsScreen(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
-    var permissionsGranted by remember { mutableStateOf(false) }
-
     val permissionsToRequest = remember {
         buildList {
             add(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -62,6 +64,15 @@ fun RequirePermissionsScreen(
         }.toTypedArray()
     }
 
+    val context = LocalContext.current
+    var permissionsGranted by remember {
+        mutableStateOf(
+            permissionsToRequest.all {
+                ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+            }
+        )
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -69,7 +80,9 @@ fun RequirePermissionsScreen(
     }
 
     if (permissionsGranted) {
-        content()
+        Box(modifier = modifier) {
+            content()
+        }
     } else {
         Column(
             modifier = modifier.fillMaxSize().padding(16.dp),
