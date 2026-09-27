@@ -61,10 +61,14 @@ class WifiScanner(private val context: Context) {
                 if (finalHostname.startsWith("Unknown") || finalHostname.startsWith("Device")) {
                     val httpInfo = getHttpInfo(ip)
                     if (httpInfo != null) {
+                        Log.d("WifiScanner", "HTTP Info encontrado para $ip: $httpInfo")
                         finalHostname = "$finalHostname [$httpInfo]"
+                    } else {
+                        Log.d("WifiScanner", "Nenhuma HTTP Info para $ip")
                     }
                 }
                 
+                Log.d("WifiScanner", "Dispositivo detectado: IP=$ip, Nome=$finalHostname, MAC=$macAddress")
                 ScannedDevice(id = id, hostname = finalHostname, ip = ip)
             } else {
                 null
@@ -95,6 +99,7 @@ class WifiScanner(private val context: Context) {
                     if (parts.size >= 4 && parts[0] == ip) {
                         val mac = parts[3]
                         if (mac.matches(Regex("^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"))) {
+                            Log.d("WifiScanner", "MAC Address lido do ARP para $ip: $mac")
                             return mac
                         }
                     }
@@ -102,7 +107,7 @@ class WifiScanner(private val context: Context) {
                 }
             }
         } catch (e: Exception) {
-            // Ignora e tenta o próximo método
+            Log.e("WifiScanner", "Falha ao ler /proc/net/arp para $ip: ${e.message}")
         }
 
         try {
@@ -112,13 +117,17 @@ class WifiScanner(private val context: Context) {
                 val line = reader.readLine()
                 if (line != null && line.contains(" lladdr ")) {
                     val mac = line.substringAfter(" lladdr ").substringBefore(" ")
-                    if (mac.isNotBlank()) return mac
+                    if (mac.isNotBlank()) {
+                        Log.d("WifiScanner", "MAC Address lido do ip neigh para $ip: $mac")
+                        return mac
+                    }
                 }
             }
         } catch (e: Exception) {
-            // Ignora
+            Log.e("WifiScanner", "Falha ao executar ip neigh para $ip: ${e.message}")
         }
 
+        Log.d("WifiScanner", "Não foi possivel obter o MAC para $ip")
         return null
     }
 
@@ -129,22 +138,25 @@ class WifiScanner(private val context: Context) {
             conn.connectTimeout = 300
             conn.readTimeout = 300
             
-            // 1. Tenta pegar o header "Server" (muitos roteadores/IoT retornam "lighttpd", "ESP32", etc)
+            // 1. Tenta pegar o header "Server"
             val server = conn.getHeaderField("Server")
             if (!server.isNullOrBlank()) {
+                Log.d("WifiScanner", "Header Server retornado para $ip: $server")
                 return server
             }
             
-            // 2. Se nao tiver Server header, tenta ler a tag <title> do HTML
+            // 2. Tenta ler a tag <title>
             BufferedReader(InputStreamReader(conn.inputStream)).use { reader ->
                 val html = reader.readText()
                 val match = Regex("<title>(.*?)</title>", RegexOption.IGNORE_CASE).find(html)
                 if (match != null) {
-                    return match.groupValues[1].trim()
+                    val title = match.groupValues[1].trim()
+                    Log.d("WifiScanner", "Tag title HTML retornada para $ip: $title")
+                    return title
                 }
             }
         } catch (e: Exception) {
-            // Ignora falhas de conexao HTTP
+            Log.e("WifiScanner", "Falha HTTP no IP $ip: ${e.message}")
         }
         return null
     }
