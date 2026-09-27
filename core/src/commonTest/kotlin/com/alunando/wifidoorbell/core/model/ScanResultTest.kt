@@ -8,7 +8,7 @@ import kotlin.test.assertNotEquals
 class ScanResultTest {
     @Test
     fun testSerializationAndEquality() {
-        val dev1 = ScannedDevice("192.168.1.5", "AA:BB")
+        val dev1 = ScannedDevice("device-id-123", "John-iPhone", "192.168.1.5")
         val result1 = ScanResult(1000L, listOf(dev1))
         val result2 = ScanResult(1000L, listOf(dev1))
         val result3 = ScanResult(2000L, listOf(dev1))

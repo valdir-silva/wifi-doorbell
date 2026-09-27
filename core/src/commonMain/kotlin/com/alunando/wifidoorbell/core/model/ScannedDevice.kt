@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class ScannedDevice(
-    val ip: String,
-    val mac: String
+    val id: String,
+    val hostname: String,
+    val ip: String
 )
