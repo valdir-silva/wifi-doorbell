@@ -25,16 +25,18 @@ class SqlDelightDeviceRepository(private val db: WifiDoorbellDb) : DeviceReposit
             .map { entities -> entities.map { it.toDevice() } }
     }
 
-    override suspend fun saveDevice(device: Device) = withContext(Dispatchers.IO) {
-        db.deviceQueries.upsert(
-            id = device.id,
-            hostname = device.hostname,
-            ip = device.ip,
-            customName = device.customName,
-            isWatched = if (device.isWatched) 1L else 0L,
-            lastSeen = device.lastSeen,
-            firstSeen = device.firstSeen
-        )
+    override suspend fun saveDevice(device: Device) {
+        withContext(Dispatchers.IO) {
+            db.deviceQueries.upsert(
+                id = device.id,
+                hostname = device.hostname,
+                ip = device.ip,
+                customName = device.customName,
+                isWatched = if (device.isWatched) 1L else 0L,
+                lastSeen = device.lastSeen,
+                firstSeen = device.firstSeen
+            )
+        }
     }
 
     override suspend fun getDevice(id: String): Device? = withContext(Dispatchers.IO) {

@@ -11,13 +11,15 @@ class SqlDelightRuleRepository(private val db: WifiDoorbellDb) : RuleRepository 
         db.notificationRuleQueries.getById(id).executeAsOneOrNull()?.toRule()
     }
 
-    override suspend fun updateRule(rule: NotificationRule) = withContext(Dispatchers.IO) {
-        db.notificationRuleQueries.upsert(
-            id = rule.id,
-            throttleMinutes = rule.throttleMinutes.toLong(),
-            enabled = if (rule.enabled) 1L else 0L,
-            lastNotifiedAt = rule.lastNotifiedAt
-        )
+    override suspend fun updateRule(rule: NotificationRule) {
+        withContext(Dispatchers.IO) {
+            db.notificationRuleQueries.upsert(
+                id = rule.id,
+                throttleMinutes = rule.throttleMinutes.toLong(),
+                enabled = if (rule.enabled) 1L else 0L,
+                lastNotifiedAt = rule.lastNotifiedAt
+            )
+        }
     }
 
     private fun NotificationRuleEntity.toRule(): NotificationRule = NotificationRule(
