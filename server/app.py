@@ -246,6 +246,18 @@ def get_devices():
     devices_list.sort(key=lambda x: x.get("last_seen", ""), reverse=True)
     return jsonify(devices_list)
 
+@app.route("/api/devices/rename", methods=["POST"])
+def rename_device():
+    data = request.json
+    mac = data.get("mac", "")
+    new_vendor = data.get("vendor", "")
+    if mac in devices_history:
+        devices_history[mac]["vendor"] = new_vendor
+        save_devices()
+        log(f"✏️ Dispositivo {mac} renomeado para: {new_vendor}")
+        return jsonify({"status": "success"})
+    return jsonify({"error": "Not found"}), 404
+
 if __name__ == "__main__":
     load_config()
     

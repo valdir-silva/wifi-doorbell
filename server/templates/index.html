@@ -344,7 +344,7 @@
             const tbody = document.getElementById('devicesTableBody');
             tbody.innerHTML = '';
             
-            const phoneBrands = ['apple', 'samsung', 'motorola', 'xiaomi', 'huawei', 'oppo', 'vivo', 'realme', 'google', 'oneplus', 'nokia', 'sony', 'lg'];
+            const phoneBrands = ['apple', 'samsung', 'motorola', 'xiaomi', 'huawei', 'oppo', 'vivo', 'realme', 'google', 'oneplus', 'nokia', 'sony', 'lg', 'celular', 'phone'];
             
             const filtered = allDevices.filter(dev => {
                 if (currentFilter === 'all') return true;
@@ -366,7 +366,8 @@
                     <td><span class="mac-address">${dev.mac}</span></td>
                     <td><span style="font-family: monospace; color: #93c5fd;">${dev.ip || '-'}</span></td>
                     <td>
-                        <div class="vendor-name">${dev.vendor}</div>
+                        <span class="vendor-name">${dev.vendor}</span>
+                        <button onclick="renameDevice('${dev.mac}')" style="background:none; border:none; padding: 0; margin-left: 8px; cursor: pointer; color: var(--text-muted); opacity: 0.7; font-size: 1rem;" title="Editar Nome">✏️</button>
                         ${dev.hostname ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">🖥️ ${dev.hostname}</div>` : ''}
                     </td>
                     <td><span class="time-badge">${dev.first_seen}</span></td>
@@ -374,6 +375,17 @@
                 `;
                 tbody.appendChild(tr);
             });
+        }
+        
+        function renameDevice(mac) {
+            const newName = prompt("Qual o nome ou fabricante deste aparelho? (ex: Samsung do Valdir)");
+            if (newName) {
+                fetch('/api/devices/rename', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mac: mac, vendor: newName })
+                }).then(() => fetchDevices());
+            }
         }
         
         setInterval(fetchDevices, 2000);
