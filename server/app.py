@@ -1,6 +1,8 @@
 import os
 import time
 import datetime
+import urllib.request
+import urllib.parse
 import json
 import threading
 from flask import Flask, render_template, request, jsonify
@@ -37,9 +39,23 @@ def log(message):
     if len(logs_buffer) > MAX_LOGS:
         logs_buffer.pop(0)
 
-def send_fcm_notification():
+def get_mac_vendor(mac):
+    try:
+        url = f"https://api.macvendors.com/{urllib.parse.quote(mac)}"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        response = urllib.request.urlopen(req, timeout=3)
+        return response.read().decode('utf-8')
+    except Exception:
+        return "Dispositivo Desconhecido"
+
+def send_fcm_notification(vendor="Dispositivo"):
     token = config.get("DEVICE_FCM_TOKEN")
     log("Disparando push notification (FCM) para o celular...")
+    
+    import firebase_admin
+    if not firebase_admin._apps:
+        log("⚠️ Firebase não está inicializado (serviceAccountKey.json faltando). Ignorando notificação Push.")
+        return
     
     if not token or token == "TOKEN_DO_CELULAR_AQUI":
         log("⚠️ Token FCM não configurado! A notificação não será enviada.")
@@ -49,9 +65,14 @@ def send_fcm_notification():
         from firebase_admin import messaging
         message = messaging.Message(
             notification=messaging.Notification(
-                title="Campainha!",
-                body="Alguém conectou ao Wi-Fi da sua casa."
+                title="Campainha: Visita!",
+                body=f"Dispositivo detectado: {vendor}"
             ),
+            data={
+                "mac": config.get("TARGET_MAC", ""),
+                "vendor": vendor,
+                "event": "connected"
+            },
             token=token,
         )
         response = messaging.send(message)
@@ -98,8 +119,9 @@ def scanner_loop():
             
             if target_seen and not is_home:
                 is_home = True
-                log("🟩 ➡️ Dispositivo ACABOU DE CONECTAR! Alguém chegou.")
-                send_fcm_notification()
+                vendor = get_mac_vendor(target_mac)
+                log(f"🟩 ➡️ [{vendor}] Dispositivo ACABOU DE CONECTAR! Alguém chegou.")
+                send_fcm_notification(vendor)
                 rounds_since_last_log = 0
                 
             elif not target_seen and is_home:
