@@ -60,7 +60,6 @@ fun RequirePermissionsScreen(
 ) {
     val permissionsToRequest = remember {
         buildList {
-            add(Manifest.permission.ACCESS_FINE_LOCATION)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.POST_NOTIFICATIONS)
             }
@@ -70,7 +69,8 @@ fun RequirePermissionsScreen(
     val context = LocalContext.current
     var permissionsGranted by remember {
         mutableStateOf(
-            permissionsToRequest.all {
+            if (permissionsToRequest.isEmpty()) true 
+            else permissionsToRequest.all {
                 ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
             }
         )
@@ -92,7 +92,7 @@ fun RequirePermissionsScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = "O app precisa das permissões de Localização (para Wi-Fi) e Notificações.")
+            Text(text = "O app precisa da permissão de Notificações para avisar quando alguém chegar.")
             Button(
                 onClick = { permissionLauncher.launch(permissionsToRequest) },
                 modifier = Modifier.padding(top = 16.dp)
