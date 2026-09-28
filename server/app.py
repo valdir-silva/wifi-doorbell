@@ -1,0 +1,155 @@
+import os
+import time
+import datetime
+import json
+import threading
+from flask import Flask, render_template, request, jsonify
+
+app = Flask(__name__)
+
+CONFIG_FILE = "config.json"
+MAX_LOGS = 100
+logs_buffer = []
+
+# Default config
+config = {
+    "TARGET_MAC": "",
+    "DEVICE_FCM_TOKEN": ""
+}
+
+def load_config():
+    global config
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+
+def save_config():
+    with open(CONFIG_FILE, 'w') as f:
+        json.dump(config, f, indent=4)
+
+def get_current_time():
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def log(message):
+    formatted = f"[{get_current_time()}] {message}"
+    print(formatted)
+    logs_buffer.append(formatted)
+    if len(logs_buffer) > MAX_LOGS:
+        logs_buffer.pop(0)
+
+def send_fcm_notification():
+    token = config.get("DEVICE_FCM_TOKEN")
+    log("Disparando push notification (FCM) para o celular...")
+    
+    if not token or token == "TOKEN_DO_CELULAR_AQUI":
+        log("⚠️ Token FCM não configurado! A notificação não será enviada.")
+        return
+
+    try:
+        from firebase_admin import messaging
+        message = messaging.Message(
+            notification=messaging.Notification(
+                title="Campainha!",
+                body="Alguém conectou ao Wi-Fi da sua casa."
+            ),
+            token=token,
+        )
+        response = messaging.send(message)
+        log(f"✅ Notificação enviada com sucesso! ID: {response}")
+    except Exception as e:
+        log(f"❌ Erro ao enviar notificação FCM: {e}")
+
+def scanner_loop():
+    log("🚪 Iniciando Scanner WifiDoorbell em background...")
+    
+    # Initialize Firebase
+    try:
+        import firebase_admin
+        from firebase_admin import credentials
+        if not firebase_admin._apps:
+            if os.path.exists("serviceAccountKey.json"):
+                cred = credentials.Certificate("serviceAccountKey.json")
+                firebase_admin.initialize_app(cred)
+                log("✅ Firebase inicializado com sucesso.")
+            else:
+                log("⚠️ serviceAccountKey.json não encontrado. FCM não vai funcionar.")
+    except Exception as e:
+        log(f"⚠️ Erro ao inicializar o Firebase: {e}")
+
+    is_home = False
+    rounds_since_last_log = 0
+    SCAN_INTERVAL = 30
+    HEARTBEAT_ROUNDS = 10
+    
+    while True:
+        target_mac = config.get("TARGET_MAC", "").strip().lower()
+        if not target_mac:
+            log("⏳ Aguardando MAC Address ser configurado na interface Web...")
+            time.sleep(SCAN_INTERVAL)
+            continue
+            
+        try:
+            # Wake up devices
+            os.system("ping -c 2 -b 192.168.0.255 > /dev/null 2>&1")
+            
+            # Read ARP
+            arp_output = os.popen("arp -a").read()
+            target_seen = target_mac in arp_output.lower()
+            
+            if target_seen and not is_home:
+                is_home = True
+                log("🟩 ➡️ Dispositivo ACABOU DE CONECTAR! Alguém chegou.")
+                send_fcm_notification()
+                rounds_since_last_log = 0
+                
+            elif not target_seen and is_home:
+                is_home = False
+                log("🟥 ⬅️ Dispositivo desconectou da rede (saiu).")
+                rounds_since_last_log = 0
+                
+            rounds_since_last_log += 1
+            if rounds_since_last_log >= HEARTBEAT_ROUNDS:
+                status = "Em casa" if is_home else "Fora de casa"
+                log(f"⏳ Monitorando MAC {target_mac}... Estado: {status}")
+                rounds_since_last_log = 0
+                
+        except Exception as e:
+            log(f"⚠️ Erro no scanner: {e}")
+            
+        time.sleep(SCAN_INTERVAL)
+
+# --- Flask Routes ---
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route("/api/config", methods=["GET"])
+def get_config():
+    return jsonify(config)
+
+@app.route("/api/config", methods=["POST"])
+def update_config():
+    data = request.json
+    config["TARGET_MAC"] = data.get("TARGET_MAC", "")
+    config["DEVICE_FCM_TOKEN"] = data.get("DEVICE_FCM_TOKEN", "")
+    save_config()
+    log(f"⚙️ Configuração atualizada via Web (MAC: {config['TARGET_MAC']})")
+    return jsonify({"status": "success"})
+
+@app.route("/api/logs", methods=["GET"])
+def get_logs():
+    return jsonify(logs_buffer)
+
+if __name__ == "__main__":
+    load_config()
+    
+    # Start scanner thread
+    t = threading.Thread(target=scanner_loop, daemon=True)
+    t.start()
+    
+    log("🚀 Servidor Web iniciado na porta 5000")
+    log("👉 Acesse http://localhost:5000 no seu navegador")
+    
+    # Run flask
+    app.run(host="0.0.0.0", port=5000, debug=False)
