@@ -127,20 +127,29 @@ def scanner_loop():
             arp_output = os.popen("arp -a").read()
             target_seen = target_mac in arp_output.lower()
             
-            # Extract all MACs for history
-            macs_found = re.findall(r"(?:[0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}", arp_output)
+            # Extract all MACs and IPs for history
             current_time = get_current_time()
             devices_updated = False
             
-            for mac_raw in macs_found:
-                mac = mac_raw.replace("-", ":").lower()
+            mac_regex = r"(?:[0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}"
+            ip_regex = r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b"
+            
+            for line in arp_output.splitlines():
+                mac_match = re.search(mac_regex, line)
+                if not mac_match: continue
+                
+                mac = mac_match.group(0).replace("-", ":").lower()
                 if mac == "ff:ff:ff:ff:ff:ff" or mac == "00:00:00:00:00:00": continue
+                
+                ip_match = re.search(ip_regex, line)
+                ip = ip_match.group(0) if ip_match else "Desconhecido"
                 
                 if mac not in devices_history:
                     # New device, do OUI lookup
                     vendor = get_mac_vendor(mac)
                     devices_history[mac] = {
                         "mac": mac,
+                        "ip": ip,
                         "vendor": vendor,
                         "first_seen": current_time,
                         "last_seen": current_time
@@ -148,8 +157,10 @@ def scanner_loop():
                     devices_updated = True
                     time.sleep(1.1) # Respect api.macvendors.com rate limit
                 else:
-                    devices_history[mac]["last_seen"] = current_time
-                    devices_updated = True
+                    if devices_history[mac].get("ip") != ip or devices_history[mac].get("last_seen") != current_time:
+                        devices_history[mac]["ip"] = ip
+                        devices_history[mac]["last_seen"] = current_time
+                        devices_updated = True
             
             if devices_updated:
                 save_devices()
