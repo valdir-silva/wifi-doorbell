@@ -365,7 +365,10 @@
                 tr.innerHTML = `
                     <td><span class="mac-address">${dev.mac}</span></td>
                     <td><span style="font-family: monospace; color: #93c5fd;">${dev.ip || '-'}</span></td>
-                    <td><span class="vendor-name">${dev.vendor}</span></td>
+                    <td>
+                        <div class="vendor-name">${dev.vendor}</div>
+                        ${dev.hostname ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">🖥️ ${dev.hostname}</div>` : ''}
+                    </td>
                     <td><span class="time-badge">${dev.first_seen}</span></td>
                     <td><span class="time-badge">${dev.last_seen}</span></td>
                 `;

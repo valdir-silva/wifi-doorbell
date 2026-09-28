@@ -6,6 +6,7 @@ import urllib.parse
 import json
 import threading
 import re
+import socket
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
@@ -62,6 +63,15 @@ def get_mac_vendor(mac):
         return response.read().decode('utf-8')
     except Exception:
         return "Dispositivo Desconhecido"
+
+def get_hostname(ip):
+    if not ip or ip == "Desconhecido": return ""
+    try:
+        socket.setdefaulttimeout(0.2) # Fast timeout so we don't block the scanner
+        host, _, _ = socket.gethostbyaddr(ip)
+        return host
+    except Exception:
+        return ""
 
 def send_fcm_notification(vendor="Dispositivo"):
     token = config.get("DEVICE_FCM_TOKEN")
@@ -152,9 +162,11 @@ def scanner_loop():
                 if mac not in devices_history:
                     # New device, do OUI lookup
                     vendor = get_mac_vendor(mac)
+                    hostname = get_hostname(ip)
                     devices_history[mac] = {
                         "mac": mac,
                         "ip": ip,
+                        "hostname": hostname,
                         "vendor": vendor,
                         "first_seen": current_time,
                         "last_seen": current_time
@@ -162,10 +174,21 @@ def scanner_loop():
                     devices_updated = True
                     time.sleep(1.1) # Respect api.macvendors.com rate limit
                 else:
-                    if devices_history[mac].get("ip") != ip or devices_history[mac].get("last_seen") != current_time:
+                    changed = False
+                    if devices_history[mac].get("ip") != ip:
                         devices_history[mac]["ip"] = ip
+                        changed = True
+                    if devices_history[mac].get("last_seen") != current_time:
                         devices_history[mac]["last_seen"] = current_time
-                        devices_updated = True
+                        changed = True
+                    # Try to get hostname if we didn't have one
+                    if not devices_history[mac].get("hostname") and ip != "Desconhecido":
+                        new_host = get_hostname(ip)
+                        if new_host:
+                            devices_history[mac]["hostname"] = new_host
+                            changed = True
+                            
+                    if changed: devices_updated = True
             
             if devices_updated:
                 save_devices()
