@@ -1,107 +1,81 @@
-# WifiDoorbell 🔔
+# WifiDoorbell 🚪🔔
 
 > Saber que alguém chegou em casa **antes de tocar a campainha**, porque o celular da pessoa se conecta automaticamente ao WiFi.
 
-Android app que monitora a rede WiFi local, detecta quando dispositivos específicos se conectam e envia notificações push (inclusive via FCM para outros aparelhos).
+Um sistema IoT moderno (Cliente-Servidor) projetado para monitorar dispositivos na rede local e notificar via aplicativo Android quando determinados dispositivos se conectam à rede.
 
 ---
 
-## Como funciona
+## 🏗️ Nova Arquitetura: Servidor (Raspberry Pi) + Cliente (Android)
 
-1. O app escaneia a rede WiFi a cada 30 segundos (modo avançado) ou 2–3 minutos (modo simples)
-2. Quando detecta um dispositivo monitorado que não estava na rede antes, dispara notificação
-3. A notificação chega em todos os aparelhos do usuário via FCM
+Devido às pesadas restrições de privacidade do Android 10+ (que bloqueiam a leitura da tabela ARP e acesso a endereços MAC), a arquitetura foi aprimorada para o modelo Cliente-Servidor.
 
+### 1. O "Cérebro" (Servidor no Raspberry Pi / Ubuntu Server)
+Um script super leve (ex: Python) rodando no seu Raspberry Pi. 
+- Ele varre a rede local usando ferramentas nativas de rede (como `arp-scan` ou ping em broadcast).
+- Por estar no Linux/Ubuntu, **ele tem acesso irrestrito aos Endereços MAC reais**.
+- Detecta instantaneamente quando o "Portão" ou "Celular X" aparece na rede.
+- Ao detectar, dispara um alerta (Push Notification via Firebase FCM ou requisição direta) para o aplicativo.
+
+### 2. A "Campainha" (App Cliente Android)
+O aplicativo se torna extremamente leve, eficiente e não drena bateria.
+- Não precisa rodar em Foreground Service 24/7.
+- Recebe Push Notifications quando um dispositivo alvo conecta na rede, tocando um som de campainha mesmo com o celular em repouso.
+- Permite configurar no Banco de Dados quais MACs você quer monitorar.
+
+---
+
+## 🚀 Como fazer o MVP (Produto Mínimo Viável)
+
+### Passo 1: O Script do Raspberry Pi (Python)
+Crie um script Python no Ubuntu Server que fique rodando em loop (ou via Cron):
+```python
+import os
+import time
+
+TARGET_MAC = "aa:bb:cc:dd:ee:ff" # MAC do dispositivo (ex: portão/celular)
+
+while True:
+    # Dispara ping para preencher a tabela ARP
+    os.system("ping -c 2 -b 192.168.0.255 > /dev/null 2>&1")
+    
+    # Lê a tabela ARP do Ubuntu
+    arp_output = os.popen("arp -a").read()
+    
+    if TARGET_MAC in arp_output:
+        print("Dispositivo detectado! Enviando notificação...")
+        # TODO: Fazer requisição HTTP para o FCM ou para o endpoint do Android
+        time.sleep(300) # Throttle (evita spam de notificação por 5 minutos)
+    
+    time.sleep(30)
 ```
-João chegou!
-iPhone 14 conectou ao WiFi de casa · há 30s
-[Ver dispositivos]  [Ignorar]
-```
+
+### Passo 2: O App Android
+- Integração básica com **Firebase Cloud Messaging (FCM)**.
+- O app exibe o Token do FCM na tela.
+- O Script do Raspberry usa a API do FCM passando o Token do celular para disparar o Push.
+- Ao receber o Push, o Android invoca o `NotificationManager` e toca o som desejado.
 
 ---
 
-## Arquitetura
+## 🛠️ Tecnologias Envolvidas
 
-```
-wifi-doorbell/
-├── core/          # Kotlin Multiplatform — modelos, regras, Firestore repos
-│   └── src/commonMain/kotlin/...
-└── app/           # Android — UI, WifiScanner, Services, Firebase
-    └── src/main/kotlin/...
-```
-
-### Módulo `core` (KMP)
-- `Device`, `NotificationRule`, `ScanResult` — modelos compartilhados
-- `ScanResultProcessor` — detecta novos dispositivos, aplica throttle (sem dependência Android)
-- `FirestoreDeviceRepository` / `FirestoreRuleRepository` — sync via [firebase-kotlin-sdk (GitLive)](https://github.com/GitLiveApp/firebase-kotlin-sdk)
-- SQLDelight para cache offline
-
-### Módulo `app` (Android)
-- `WifiScanner` — ping sweep paralelo + leitura de `/proc/net/arp` + lookup OUI offline
-- `NetworkMonitorService` — Foreground Service (modo avançado, scan a cada 30s)
-- `MonitorWorker` — WorkManager (modo simples, scan a cada 2–3 min)
-- `FcmNotificationSender` — escreve em Firestore para trigger de Cloud Function
-- Jetpack Compose + Material 3
-
----
-
-## Modos de Monitoramento
-
-| Modo | Mecanismo | Intervalo | Notificação persistente |
-|------|-----------|-----------|------------------------|
-| **Avançado** | Foreground Service | 30s | Sim — ação "Modo simples" |
-| **Simples** | WorkManager | 2–3 min | Não |
-
----
-
-## Modo do Aparelho
-
-| Modo | Descrição |
-|------|-----------|
-| 🏠 **Scanner** | Fica em casa, escaneia a rede, envia FCM |
-| 📱 **Receptor** | Recebe notificações, gerencia devices e regras |
-| 🔄 **Ambos** (padrão) | Scanner e receptor ao mesmo tempo |
-
-Útil para usar um tablet antigo como scanner dedicado e receber as notificações no celular principal.
-
----
-
-## Firebase
-
-| Serviço | Uso |
+| Componente | Ferramenta |
 |---------|-----|
-| Firestore | Sync de devices, regras, tokens FCM e settings |
-| FCM | Push via Cloud Function (server key nunca exposta no app) |
-| Authentication | Google Sign-In |
-| Crashlytics | Crash reports |
-| Analytics | `device_detected`, `notification_sent`, `mode_changed` |
-| Cloud Functions | Trigger FCM quando novo documento em `notifications/` |
+| **Servidor (Pi)** | Python, `arp-scan`, Bash, Linux |
+| **Android App** | Kotlin, Jetpack Compose, Material 3, SQLite (SQLDelight) |
+| **Mensageria** | Firebase Cloud Messaging (FCM) |
 
 ---
 
-## Permissões
+## 📌 Issues e Próximos Passos (Roadmap)
 
-- `ACCESS_WIFI_STATE` / `ACCESS_NETWORK_STATE`
-- `ACCESS_FINE_LOCATION` — obrigatório para WifiManager no Android 10+
-- `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_CONNECTED_DEVICE` (Android 14+)
-- `POST_NOTIFICATIONS` (Android 13+)
-- `RECEIVE_BOOT_COMPLETED`
-- `INTERNET`
-
----
-
-## Roadmap v1
-
-Veja as [issues abertas](../../issues) para o status de implementação.
-
----
-
-## Apoie o projeto
-
-Se o app te economizou de levantar do sofá, considere apoiar! Veja a tela de Doação dentro do app.
+1. [ ] **Criar o script Python do Servidor**: Implementar o loop de scan no Ubuntu Server e a chamada POST para o Firebase HTTP v1 API.
+2. [ ] **Remover serviços legados do Android**: Deletar o `NetworkMonitorService` e `WifiScanner` que ficavam ativos no Android, pois não são mais necessários.
+3. [ ] **Integrar Firebase no Android**: Configurar o `google-services.json` e implementar a classe `FirebaseMessagingService` para receber os Pushes e emitir a notificação sonora local.
+4. [ ] **UI do App**: Criar uma interface simples para copiar o Token do aparelho e colar no código do Raspberry Pi (MVP).
 
 ---
 
 ## Licença
-
 [MIT](LICENSE)
