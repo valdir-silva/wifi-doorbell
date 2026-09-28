@@ -178,6 +178,21 @@
         .mac-address { font-family: monospace; color: #a7f3d0; background: rgba(0,0,0,0.3); padding: 0.2rem 0.5rem; border-radius: 4px; }
         .vendor-name { font-weight: 600; color: var(--text-main); }
         .time-badge { font-size: 0.8rem; color: var(--text-muted); }
+
+        .tabs { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+        .tab-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            padding: 0.5rem 1.5rem;
+            border-radius: 9999px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .tab-btn:hover { background: rgba(255, 255, 255, 0.1); color: var(--text-main); }
+        .tab-btn.active { background: var(--accent-1); color: white; border-color: var(--accent-1); box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3); }
     </style>
 </head>
 <body>
@@ -211,6 +226,10 @@
         </div>
         <div class="glass-panel" style="grid-column: 1 / -1;">
             <h2>📱 Network Devices History</h2>
+            <div class="tabs">
+                <button class="tab-btn active" id="tabAll" onclick="setFilter('all')">Todos</button>
+                <button class="tab-btn" id="tabPhones" onclick="setFilter('phones')">📱 Apenas Celulares</button>
+            </div>
             <div style="overflow-x: auto;">
                 <table class="device-table">
                     <thead>
@@ -300,24 +319,56 @@
         setInterval(fetchLogs, 1000);
         fetchLogs();
         
+        let currentFilter = 'all';
+        let allDevices = [];
+
+        function setFilter(filterType) {
+            currentFilter = filterType;
+            document.getElementById('tabAll').classList.toggle('active', filterType === 'all');
+            document.getElementById('tabPhones').classList.toggle('active', filterType === 'phones');
+            renderDevices();
+        }
+
         // Fetch devices history
         function fetchDevices() {
             fetch('/api/devices')
                 .then(res => res.json())
                 .then(devices => {
-                    const tbody = document.getElementById('devicesTableBody');
-                    tbody.innerHTML = '';
-                    devices.forEach(dev => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td><span class="mac-address">${dev.mac}</span></td>
-                            <td><span class="vendor-name">${dev.vendor}</span></td>
-                            <td><span class="time-badge">${dev.first_seen}</span></td>
-                            <td><span class="time-badge">${dev.last_seen}</span></td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
+                    allDevices = devices;
+                    renderDevices();
                 });
+        }
+        
+        function renderDevices() {
+            const tbody = document.getElementById('devicesTableBody');
+            tbody.innerHTML = '';
+            
+            const phoneBrands = ['apple', 'samsung', 'motorola', 'xiaomi', 'huawei', 'oppo', 'vivo', 'realme', 'google', 'oneplus', 'nokia', 'sony', 'lg'];
+            
+            const filtered = allDevices.filter(dev => {
+                if (currentFilter === 'all') return true;
+                if (currentFilter === 'phones') {
+                    const vendor = (dev.vendor || '').toLowerCase();
+                    return phoneBrands.some(brand => vendor.includes(brand));
+                }
+                return true;
+            });
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Nenhum dispositivo encontrado nesta categoria.</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(dev => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><span class="mac-address">${dev.mac}</span></td>
+                    <td><span class="vendor-name">${dev.vendor}</span></td>
+                    <td><span class="time-badge">${dev.first_seen}</span></td>
+                    <td><span class="time-badge">${dev.last_seen}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
         
         setInterval(fetchDevices, 2000);
