@@ -350,7 +350,7 @@
                 if (currentFilter === 'all') return true;
                 if (currentFilter === 'phones') {
                     const vendor = (dev.vendor || '').toLowerCase();
-                    return phoneBrands.some(brand => vendor.includes(brand));
+                    return phoneBrands.some(brand => vendor.includes(brand)) || vendor.includes("aleatório") || vendor.includes("privado");
                 }
                 return true;
             });

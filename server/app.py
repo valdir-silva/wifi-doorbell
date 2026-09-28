@@ -50,6 +50,11 @@ def log(message):
         logs_buffer.pop(0)
 
 def get_mac_vendor(mac):
+    # Detect Locally Administered MAC (Randomized by iOS/Android)
+    first_octet = mac.split(":")[0].lower()
+    if len(first_octet) == 2 and first_octet[1] in "26ae":
+        return "Celular/PC (MAC Aleatório/Privado)"
+
     try:
         url = f"https://api.macvendors.com/{urllib.parse.quote(mac)}"
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
