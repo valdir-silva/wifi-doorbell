@@ -5,11 +5,13 @@ import urllib.request
 import urllib.parse
 import json
 import threading
+import re
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
 CONFIG_FILE = "config.json"
+DEVICES_FILE = "devices.json"
 MAX_LOGS = 100
 logs_buffer = []
 
@@ -18,16 +20,24 @@ config = {
     "TARGET_MAC": "",
     "DEVICE_FCM_TOKEN": ""
 }
+devices_history = {}
 
 def load_config():
-    global config
+    global config, devices_history
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, 'r') as f:
             config = json.load(f)
+    if os.path.exists(DEVICES_FILE):
+        with open(DEVICES_FILE, 'r') as f:
+            devices_history = json.load(f)
 
 def save_config():
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f, indent=4)
+
+def save_devices():
+    with open(DEVICES_FILE, 'w') as f:
+        json.dump(devices_history, f, indent=4)
 
 def get_current_time():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -117,6 +127,33 @@ def scanner_loop():
             arp_output = os.popen("arp -a").read()
             target_seen = target_mac in arp_output.lower()
             
+            # Extract all MACs for history
+            macs_found = re.findall(r"(?:[0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}", arp_output)
+            current_time = get_current_time()
+            devices_updated = False
+            
+            for mac_raw in macs_found:
+                mac = mac_raw.replace("-", ":").lower()
+                if mac == "ff:ff:ff:ff:ff:ff" or mac == "00:00:00:00:00:00": continue
+                
+                if mac not in devices_history:
+                    # New device, do OUI lookup
+                    vendor = get_mac_vendor(mac)
+                    devices_history[mac] = {
+                        "mac": mac,
+                        "vendor": vendor,
+                        "first_seen": current_time,
+                        "last_seen": current_time
+                    }
+                    devices_updated = True
+                    time.sleep(1.1) # Respect api.macvendors.com rate limit
+                else:
+                    devices_history[mac]["last_seen"] = current_time
+                    devices_updated = True
+            
+            if devices_updated:
+                save_devices()
+            
             if target_seen and not is_home:
                 is_home = True
                 vendor = get_mac_vendor(target_mac)
@@ -162,6 +199,13 @@ def update_config():
 @app.route("/api/logs", methods=["GET"])
 def get_logs():
     return jsonify(logs_buffer)
+
+@app.route("/api/devices", methods=["GET"])
+def get_devices():
+    # Return as list sorted by last_seen descending
+    devices_list = list(devices_history.values())
+    devices_list.sort(key=lambda x: x.get("last_seen", ""), reverse=True)
+    return jsonify(devices_list)
 
 if __name__ == "__main__":
     load_config()

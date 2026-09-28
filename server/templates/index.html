@@ -170,6 +170,14 @@
             z-index: 1000;
         }
         .toast.show { transform: translateY(0); opacity: 1; }
+        
+        .device-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        .device-table th, .device-table td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--glass-border); font-size: 0.9rem; }
+        .device-table th { color: var(--accent-1); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+        .device-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .mac-address { font-family: monospace; color: #a7f3d0; background: rgba(0,0,0,0.3); padding: 0.2rem 0.5rem; border-radius: 4px; }
+        .vendor-name { font-weight: 600; color: var(--text-main); }
+        .time-badge { font-size: 0.8rem; color: var(--text-muted); }
     </style>
 </head>
 <body>
@@ -199,6 +207,24 @@
             <h2>📡 Live Terminal</h2>
             <div class="log-container" id="logContainer">
                 <!-- Logs will be injected here -->
+            </div>
+        </div>
+        <div class="glass-panel" style="grid-column: 1 / -1;">
+            <h2>📱 Network Devices History</h2>
+            <div style="overflow-x: auto;">
+                <table class="device-table">
+                    <thead>
+                        <tr>
+                            <th>MAC Address</th>
+                            <th>Manufacturer</th>
+                            <th>First Seen</th>
+                            <th>Last Connected</th>
+                        </tr>
+                    </thead>
+                    <tbody id="devicesTableBody">
+                        <!-- Devices injected here -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -273,6 +299,29 @@
 
         setInterval(fetchLogs, 1000);
         fetchLogs();
+        
+        // Fetch devices history
+        function fetchDevices() {
+            fetch('/api/devices')
+                .then(res => res.json())
+                .then(devices => {
+                    const tbody = document.getElementById('devicesTableBody');
+                    tbody.innerHTML = '';
+                    devices.forEach(dev => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><span class="mac-address">${dev.mac}</span></td>
+                            <td><span class="vendor-name">${dev.vendor}</span></td>
+                            <td><span class="time-badge">${dev.first_seen}</span></td>
+                            <td><span class="time-badge">${dev.last_seen}</span></td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                });
+        }
+        
+        setInterval(fetchDevices, 2000);
+        fetchDevices();
     </script>
 </body>
 </html>
